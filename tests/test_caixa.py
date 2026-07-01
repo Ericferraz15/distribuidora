@@ -1,6 +1,6 @@
 import time
 
-from models.caixa_model import Caixa,Entrada,Saida,FechamentoMensal,MetodoPagamento
+from models.caixa_model import Caixa, Entrada, Saida, FechamentoMensal, MetodoPagamento
 from models.usuario_model import Usuario
 
 
