@@ -42,6 +42,25 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:logout', onLogout)
   }, [])
 
+  // O token so carrega id + permissao; o nome (e a permissao mais recente)
+  // vem de GET /auth/me. Roda apos o login e ao reabrir a app ja logado.
+  useEffect(() => {
+    if (!user || user.nome) return
+    let cancelado = false
+    api
+      .me()
+      .then((perfil) => {
+        if (cancelado || !perfil) return
+        setUser((u) => (u ? { ...u, nome: perfil.nome, permissao: perfil.permissao } : u))
+      })
+      .catch(() => {
+        /* melhor exibir "Usuario #id" do que quebrar a app se /me falhar */
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [user])
+
   const value = useMemo(
     () => ({
       user,

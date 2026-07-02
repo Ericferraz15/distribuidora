@@ -45,14 +45,20 @@ function normalizarDetalhe(detail, fallback) {
 async function tentarRenovar() {
   const refresh = getRefreshToken()
   if (!refresh) return false
-  const res = await fetch(BASE + '/auth/refresh', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refresh }),
-  })
-  if (!res.ok) return false
-  setTokens(await res.json())
-  return true
+  // try/catch: se a rede cair entre o 401 e o refresh, tratamos como
+  // "nao renovou" em vez de estourar um TypeError fora do fluxo normal.
+  try {
+    const res = await fetch(BASE + '/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refresh }),
+    })
+    if (!res.ok) return false
+    setTokens(await res.json())
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function apiFetch(path, opts = {}) {
@@ -105,6 +111,7 @@ export const api = {
   login: (username, password) =>
     apiFetch('/auth/login', { method: 'POST', form: { username, password }, auth: false }),
   logout: () => apiFetch('/auth/logout', { method: 'POST' }),
+  me: () => apiFetch('/auth/me'),
 
   // turnos
   turnoAtivo: () => apiFetch('/turnos/ativo'),

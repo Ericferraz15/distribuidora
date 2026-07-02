@@ -59,9 +59,12 @@ export default function Layout() {
         </nav>
         <div className="sidebar__rodape">
           <div className="perfil">
-            <div className="perfil__avatar">{isAdmin ? 'A' : 'F'}</div>
+            {/* Inicial do nome vindo de /auth/me; cai para o id enquanto carrega. */}
+            <div className="perfil__avatar">
+              {(user?.nome?.[0] || (isAdmin ? 'A' : 'F')).toUpperCase()}
+            </div>
             <div className="perfil__info">
-              <strong>Usuário #{user?.id}</strong>
+              <strong>{user?.nome || `Usuário #${user?.id}`}</strong>
               <span>{rotulo(user?.permissao)}</span>
             </div>
           </div>

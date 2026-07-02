@@ -9,6 +9,7 @@ function Sonda() {
   return (
     <div>
       <span data-testid="perm">{user?.permissao ?? 'anon'}</span>
+      <span data-testid="nome">{user?.nome ?? '—'}</span>
       <button onClick={() => login('admin', 'x')}>entrar</button>
       <button onClick={logout}>sair</button>
     </div>
@@ -34,5 +35,11 @@ describe('AuthContext', () => {
 
     act(() => window.dispatchEvent(new Event('auth:logout')))
     await waitFor(() => expect(screen.getByTestId('perm')).toHaveTextContent('anon'))
+  })
+
+  it('hidrata o nome do usuário via GET /auth/me', async () => {
+    fazerLogin('funcionario') // token só tem id+permissão; nome vem do /me
+    renderWithProviders(<Sonda />)
+    await waitFor(() => expect(screen.getByTestId('nome')).toHaveTextContent('joao'))
   })
 })

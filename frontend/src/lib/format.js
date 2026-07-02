@@ -19,7 +19,10 @@ export function formatData(iso) {
 }
 
 export function hojeISO() {
-  return new Date().toISOString().slice(0, 10)
+  // Data LOCAL em YYYY-MM-DD. Cuidado com toISOString(): ela converte para
+  // UTC, entao depois das 21h no Brasil (UTC-3) devolveria a data de amanha.
+  // O locale 'sv' (sueco) formata exatamente como YYYY-MM-DD.
+  return new Date().toLocaleDateString('sv')
 }
 
 const ROTULO = {

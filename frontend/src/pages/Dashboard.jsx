@@ -94,7 +94,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <dt>Responsável</dt>
-                <dd>Usuário #{caixa.funcionario_id}</dd>
+                <dd>{caixa.funcionario_nome || `Usuário #${caixa.funcionario_id}`}</dd>
               </div>
               <div>
                 <dt>Aberto em</dt>

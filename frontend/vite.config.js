@@ -16,7 +16,18 @@ export default defineConfig({
     strictPort: true, // falha claro se a 3000 estiver ocupada (em vez de trocar de porta)
     allowedHosts: true, // aceita acesso por qualquer host/IP (Vite 5.4+)
     proxy: Object.fromEntries(
-      PREFIXOS.map((p) => [p, { target: API_TARGET, changeOrigin: true }])
+      PREFIXOS.map((p) => [
+        p,
+        {
+          target: API_TARGET,
+          changeOrigin: true,
+          // Alguns prefixos da API coincidem com rotas do SPA (/dashboard,
+          // /usuarios). Navegacao de browser (F5, link direto) pede HTML —
+          // devolvemos o index.html do SPA; so chamadas fetch/JSON proxiam.
+          bypass: (req) =>
+            req.headers.accept?.includes('text/html') ? '/index.html' : undefined,
+        },
+      ])
     ),
   },
   // Configuracao dos testes (Vitest). Roda em jsdom com globals estilo Jest.

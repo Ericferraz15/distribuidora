@@ -10,7 +10,9 @@ const ACCESS_KEY = 'dm_access_token'
 const REFRESH_KEY = 'dm_refresh_token'
 
 // Grava um token de sessão no localStorage antes de montar (simula usuário logado).
-export function login(permissao = 'admin', sub = 1) {
+// O `sub` default segue o banco fake dos handlers (admin = id 1, joao = id 2),
+// para que GET /auth/me devolva um perfil coerente com a permissão pedida.
+export function login(permissao = 'admin', sub = permissao === 'admin' ? 1 : 2) {
   localStorage.setItem(ACCESS_KEY, fakeToken({ permissao, sub }))
   localStorage.setItem(REFRESH_KEY, fakeToken({ permissao, sub, tipo: 'refresh' }))
 }

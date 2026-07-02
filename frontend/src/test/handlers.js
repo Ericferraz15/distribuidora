@@ -38,6 +38,7 @@ function statusCaixa() {
     turno_id: db.turno.id,
     caixa_id: db.caixa.id,
     funcionario_id: db.turno.funcionario_id,
+    funcionario_nome: db.usuarios.find((u) => u.id === db.turno.funcionario_id)?.nome || null,
     saldo_inicial: inicial.toFixed(2),
     total_entradas: entradas.toFixed(2),
     total_saidas: saidas.toFixed(2),
@@ -62,6 +63,18 @@ export const handlers = [
     HttpResponse.json({ access_token: fakeToken(), refresh_token: fakeToken({ tipo: 'refresh' }) })
   ),
   http.post('/auth/logout', () => HttpResponse.json({ detail: 'ok' })),
+  // Perfil do usuario logado: lemos o id do proprio Bearer token (claim sub).
+  http.get('/auth/me', ({ request }) => {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    let sub = 1
+    try {
+      sub = Number(JSON.parse(atob(token.split('.')[1])).sub)
+    } catch {
+      /* token de teste sempre decodifica; fallback pro admin */
+    }
+    const u = db.usuarios.find((x) => x.id === sub) || db.usuarios[0]
+    return HttpResponse.json(u)
+  }),
 
   // --- turnos ---
   http.get('/turnos/ativo', () => HttpResponse.json(db.turno)),

@@ -135,7 +135,7 @@ export default function Operacao() {
               <div>
                 <h3>Turno #{caixa.turno_id}</h3>
                 <p className="muted">
-                  Responsável: Usuário #{caixa.funcionario_id} · Aberto em {formatData(caixa.abertura)}
+                  Responsável: {caixa.funcionario_nome || `Usuário #${caixa.funcionario_id}`} · Aberto em {formatData(caixa.abertura)}
                 </p>
               </div>
               <div className="acoes">
