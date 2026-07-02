@@ -114,6 +114,7 @@ projeto_max/
 | POST | `/auth/login` | público |
 | POST | `/auth/refresh` | público (refresh token) |
 | POST | `/auth/logout` | autenticado |
+| GET | `/auth/me` | autenticado (perfil do usuário logado) |
 | POST · GET · PATCH | `/usuarios` · `/usuarios/{id}` | **admin** (RNF03) |
 | POST | `/turnos/abrir` | autenticado |
 | POST | `/turnos/encerrar` | dono do turno (RN01) |
@@ -187,9 +188,27 @@ pytest        # unitários de domínio + integração (SQLite em memória)
 ## 8. Autenticação e Segurança
 
 - **Senhas:** hash **bcrypt** com salt (`security/gerenciador_senha.py`).
+  Cadastro exige 6–72 caracteres (72 bytes é o limite do próprio bcrypt).
 - **Tokens:** **JWT** HS256 (`security/gerenciador_jwt.py`) — `access` (1h) e
-  `refresh` (7 dias). Renovação em `/auth/refresh`.
-- **Autorização:** `get_current_user` valida o token e carrega o usuário;
-  `require_admin` restringe rotas administrativas (RNF03).
+  `refresh` (7 dias). Renovação em `/auth/refresh`. A API **se recusa a subir**
+  se `SECRET_KEY_JWT` estiver ausente ou tiver menos de 32 caracteres
+  (fail-fast: chave fraca permitiria forjar tokens de admin).
+- **Autorização:** `get_current_user` valida o token e **recarrega o usuário do
+  banco** a cada requisição (permissão/ativo sempre atuais); `require_admin`
+  restringe rotas administrativas (RNF03).
+- **Login endurecido:** usuário inexistente, senha errada e conta desativada
+  respondem o mesmo 401, e um hash "isca" equaliza o tempo de resposta —
+  impede descobrir quais usuários existem (user enumeration por timing).
+- **Anti-lockout:** um admin não pode rebaixar nem desativar a si mesmo
+  (`routes/usuarios.py`), evitando um sistema sem nenhum administrador.
+- **Concorrência:** a venda tranca a linha do produto (`SELECT ... FOR UPDATE`)
+  antes de baixar o estoque — duas vendas simultâneas não vendem além do saldo.
+- **Validação espelhada no schema:** limites de tamanho dos DTOs Pydantic
+  seguem as colunas do banco (`String(120)`, `Numeric(12,2)`…), transformando
+  erros de banco (500) em respostas 422 claras.
+- **CORS:** origens liberadas via `CORS_ORIGINS` no `.env`; sem
+  `allow_credentials` porque a auth viaja no header `Authorization`, não em cookies.
 - **Auditoria (RNF02):** toda `Transacao` e todo `MovimentoEstoque` guardam o
   `funcionario_id` do turno ativo — nunca vindo do corpo da requisição.
+- **Fuso do negócio:** timestamps gravados em UTC; o "dia" do dashboard segue
+  `FUSO_NEGOCIO` (padrão `America/Sao_Paulo`) — venda das 22h não cai em "amanhã".

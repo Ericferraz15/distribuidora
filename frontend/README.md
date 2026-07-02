@@ -17,7 +17,8 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:5173`. O Vite faz **proxy** das rotas da API
+Abra `http://localhost:3000` (porta fixa em `vite.config.js`; outros aparelhos
+da rede local acessam pelo IP da máquina). O Vite faz **proxy** das rotas da API
 (`/auth`, `/produtos`, `/turnos`, ...) para `http://127.0.0.1:8000`, então não há
 problema de CORS em desenvolvimento.
 
