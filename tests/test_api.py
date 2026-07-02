@@ -182,3 +182,61 @@ def test_dashboard_mais_vendidos(client, admin_headers, func_headers):
     resumo = client.get("/dashboard/resumo", headers=admin_headers).json()
     assert float(resumo["faturamento"]) == 20.0
     assert resumo["num_vendas"] == 1
+
+
+# --- Seguranca -----------------------------------------------------------------
+def test_cadastro_rejeita_senha_fraca_ou_gigante(client, admin_headers):
+    # < 6 chars: fraca demais; > 72 bytes: estoura o limite do bcrypt (viraria 500).
+    for senha in ("123", "x" * 73):
+        resp = client.post(
+            "/usuarios",
+            headers=admin_headers,
+            json={"nome": "novo_func", "senha": senha},
+        )
+        assert resp.status_code == 422, resp.text
+
+
+def test_usuario_desativado_nao_loga(client, admin_headers, funcionario):
+    resp = client.patch(
+        f"/usuarios/{funcionario.id}", headers=admin_headers, json={"ativo": False}
+    )
+    assert resp.status_code == 200
+
+    login = client.post("/auth/login", data={"username": "func", "password": "func123"})
+    assert login.status_code == 401
+
+
+def test_admin_nao_se_rebaixa_nem_se_desativa(client, admin, admin_headers):
+    # Anti-lockout: evita que o unico admin se tranque para fora do sistema.
+    rebaixar = client.patch(
+        f"/usuarios/{admin.id}", headers=admin_headers, json={"permissao": "funcionario"}
+    )
+    assert rebaixar.status_code == 400
+
+    desativar = client.patch(
+        f"/usuarios/{admin.id}", headers=admin_headers, json={"ativo": False}
+    )
+    assert desativar.status_code == 400
+
+    # Editar o proprio telefone continua permitido.
+    telefone = client.patch(
+        f"/usuarios/{admin.id}",
+        headers=admin_headers,
+        json={"numero_telefone": "11988887777"},
+    )
+    assert telefone.status_code == 200
+
+
+def test_auth_me(client, admin, admin_headers):
+    resp = client.get("/auth/me", headers=admin_headers)
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert corpo["nome"] == "admin"
+    assert corpo["permissao"] == "admin"
+    assert "senha_hash" not in corpo  # nunca vaza o hash
+
+
+def test_caixa_informa_nome_do_funcionario(client, func_headers):
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 10})
+    caixa = client.get("/caixa/atual", headers=func_headers).json()
+    assert caixa["funcionario_nome"] == "func"

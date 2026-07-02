@@ -6,10 +6,16 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.usuario_model import Usuario
 from schemas.auth import RefreshRequest, TokenResponse
+from schemas.usuario import UsuarioOut
 from security.dependencies import gerenciador_jwt, get_current_user
 from security.gerenciador_senha import GerenciadorSenha
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Hash "isca" para logins com usuario inexistente: sem ele, a resposta seria
+# quase instantanea (pulou o bcrypt) e um atacante descobriria quais nomes de
+# usuario existem cronometrando as respostas (user enumeration por timing).
+_HASH_ISCA = GerenciadorSenha.gerar_hash("isca-anti-enumeracao")
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -21,9 +27,12 @@ def login(
     usuario = db.scalars(
         select(Usuario).where(Usuario.nome == form.username)
     ).first()
-    if usuario is None or not GerenciadorSenha.verificar_hash(
-        form.password, usuario.senha_hash
-    ):
+    senha_ok = GerenciadorSenha.verificar_hash(
+        form.password, usuario.senha_hash if usuario else _HASH_ISCA
+    )
+    # Mesma mensagem para "nao existe", "senha errada" e "desativado": nao dar
+    # pista sobre quais contas existem. Usuario desativado nao ganha token.
+    if usuario is None or not usuario.ativo or not senha_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais invalidas",
@@ -32,6 +41,13 @@ def login(
     access = gerenciador_jwt.gerar_token(usuario.id, usuario.permissao, "access")
     refresh = gerenciador_jwt.gerar_token(usuario.id, usuario.permissao, "refresh")
     return TokenResponse(access_token=access, refresh_token=refresh)
+
+
+@router.get("/me", response_model=UsuarioOut)
+def me(usuario: Usuario = Depends(get_current_user)):
+    """Perfil do usuario logado. O front usa para exibir nome e permissao
+    sempre atualizados (o token so carrega o id e a permissao da epoca do login)."""
+    return usuario
 
 
 @router.post("/refresh", response_model=TokenResponse)

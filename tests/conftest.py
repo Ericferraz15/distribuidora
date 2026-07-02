@@ -2,7 +2,8 @@ import os
 
 # Garante que a app nunca toque no Postgres real durante os testes.
 os.environ.setdefault("DATABASE_URL", "sqlite://")
-os.environ.setdefault("SECRET_KEY_JWT", "test-secret")
+# 32+ chars: HS256 exige chave longa (ver security/gerenciador_jwt.py).
+os.environ.setdefault("SECRET_KEY_JWT", "chave-de-teste-nao-usar-em-producao-0123456789")
 
 import pytest
 from fastapi.testclient import TestClient

@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -32,10 +33,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS: em dev o Vite faz proxy (mesma origem, dispensa CORS); em producao na
+# rede local o front pode ser acessado por http://<ip-do-note>:3000, entao a
+# lista de origens vem do .env. Nao usamos allow_credentials porque a auth
+# viaja no header Authorization (Bearer), nao em cookies — e a combinacao
+# credentials + origem "*" e invalida por especificacao (os navegadores bloqueiam).
+origens = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=origens,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -27,14 +27,16 @@ class ItemVendaInput(BaseModel):
 class VendaRequest(BaseModel):
     itens: list[ItemVendaInput] = Field(min_length=1)
     metodo_pagamento: MetodoPagamento
-    descricao: str | None = None
+    descricao: str | None = Field(default=None, max_length=255)
 
 
 class SaidaRequest(BaseModel):
-    valor: Decimal = Field(gt=0)
+    # max_digits=12 espelha a coluna Numeric(12, 2): valor absurdo vira 422
+    # do Pydantic em vez de erro de banco (500).
+    valor: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
     categoria: CategoriaTransacao = CategoriaTransacao.SANGRIA
     metodo_pagamento: MetodoPagamento = MetodoPagamento.DINHEIRO
-    descricao: str | None = None
+    descricao: str | None = Field(default=None, max_length=255)
 
 
 class ItemVendaOut(BaseModel):

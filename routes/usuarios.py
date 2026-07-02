@@ -4,7 +4,12 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models.usuario_model import Usuario
-from schemas.usuario import UsuarioCreate, UsuarioOut, UsuarioUpdate
+from schemas.usuario import (
+    PermissaoUsuario,
+    UsuarioCreate,
+    UsuarioOut,
+    UsuarioUpdate,
+)
 from security.dependencies import require_admin
 from security.gerenciador_senha import GerenciadorSenha
 
@@ -42,7 +47,10 @@ def listar_usuarios(db: Session = Depends(get_db)):
 
 @router.patch("/{usuario_id}", response_model=UsuarioOut)
 def atualizar_usuario(
-    usuario_id: int, body: UsuarioUpdate, db: Session = Depends(get_db)
+    usuario_id: int,
+    body: UsuarioUpdate,
+    db: Session = Depends(get_db),
+    admin: Usuario = Depends(require_admin),
 ):
     usuario = db.get(Usuario, usuario_id)
     if usuario is None:
@@ -52,6 +60,18 @@ def atualizar_usuario(
         )
 
     dados = body.model_dump(exclude_unset=True)
+
+    # Anti-lockout: o admin nao pode rebaixar nem desativar a si mesmo. Sem
+    # esta guarda, o unico admin do sistema poderia se trancar para fora e
+    # ninguem mais conseguiria gerenciar usuarios.
+    if usuario.id == admin.id and (
+        dados.get("permissao") not in (None, PermissaoUsuario.ADMIN)
+        or dados.get("ativo") is False
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Voce nao pode rebaixar ou desativar a si mesmo.",
+        )
     senha = dados.pop("senha", None)
     if senha is not None:
         usuario.senha_hash = GerenciadorSenha.gerar_hash(senha)

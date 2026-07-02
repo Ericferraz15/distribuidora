@@ -50,7 +50,11 @@ def registrar_venda(
 
         total = Decimal(0)
         for item in req.itens:
-            produto = db.get(Produto, item.produto_id)
+            # with_for_update = SELECT ... FOR UPDATE: tranca a linha do
+            # produto ate o commit. Sem isso, duas vendas simultaneas leriam
+            # o mesmo saldo e poderiam vender alem do estoque (race condition).
+            # No SQLite dos testes e um no-op inofensivo.
+            produto = db.get(Produto, item.produto_id, with_for_update=True)
             if produto is None or not produto.ativo:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
