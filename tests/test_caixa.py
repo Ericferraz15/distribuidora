@@ -1,7 +1,7 @@
 import time
 
-from models.caixa_model import Caixa, Entrada, Saida, FechamentoMensal, MetodoPagamento
-from models.usuario_model import Usuario
+from schemas.caixa import Caixa, Entrada, Saida, FechamentoMensal, MetodoPagamento
+from schemas.usuario import Usuario
 
 
 def novo_usuario():

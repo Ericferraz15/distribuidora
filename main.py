@@ -1,11 +1,27 @@
-import uvicorn
-from routes import login
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
+
+import uvicorn
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+import models  # noqa: F401  (registra as tabelas no Base.metadata)
+from database import Base, engine
+from routes import (
+    caixa,
+    dashboard,
+    estoque,
+    login,
+    transacoes,
+    turnos,
+    usuarios,
+)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Conveniencia de dev: cria tabelas ausentes. Em producao use Alembic
+    # (`alembic upgrade head`) para versionar o schema sem downtime (RNF01).
+    Base.metadata.create_all(bind=engine)
     yield
 
 
@@ -24,8 +40,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(login.router)
+for modulo in (login, usuarios, turnos, caixa, transacoes, estoque, dashboard):
+    app.include_router(modulo.router)
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", reload=True)
+    # host 0.0.0.0: expoe a API para todos os hosts da rede local (acesso via celular etc.)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
