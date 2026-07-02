@@ -32,6 +32,7 @@ def status_caixa_atual(db: Session) -> CaixaStatusOut:
         turno_id=turno.id,
         caixa_id=caixa.id,
         funcionario_id=turno.funcionario_id,
+        funcionario_nome=turno.funcionario.nome,
         saldo_inicial=caixa.saldo_inicial,
         total_entradas=entradas,
         total_saidas=saidas,

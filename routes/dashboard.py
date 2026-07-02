@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -19,12 +19,12 @@ router = APIRouter(
 
 @router.get("/resumo", response_model=ResumoDia)
 def resumo(dia: date | None = None, db: Session = Depends(get_db)):
-    """RF07: faturamento e volume do dia (default: hoje em UTC).
+    """RF07: faturamento e volume do dia (default: hoje no fuso do negocio).
 
-    Timestamps sao gravados em UTC, entao o dia tambem e calculado em UTC
-    para manter a consistencia da janela diaria.
+    A janela diaria e calculada em services/dashboard_service.py no fuso
+    FUSO_NEGOCIO e convertida para UTC, que e como os timestamps sao gravados.
     """
-    return dashboard_service.resumo_dia(db, dia or datetime.now(timezone.utc).date())
+    return dashboard_service.resumo_dia(db, dia or dashboard_service.hoje_negocio())
 
 
 @router.get("/mais-vendidos", response_model=list[ItemMaisVendido])

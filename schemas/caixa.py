@@ -58,6 +58,8 @@ class CaixaStatusOut(BaseModel):
     turno_id: int | None = None
     caixa_id: int | None = None
     funcionario_id: int | None = None
+    # Nome junto do id para o front nao precisar de outra chamada.
+    funcionario_nome: str | None = None
     saldo_inicial: Decimal | None = None
     total_entradas: Decimal | None = None
     total_saidas: Decimal | None = None

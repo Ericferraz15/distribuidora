@@ -1,5 +1,7 @@
-from datetime import date, datetime, time, timedelta, timezone
+import os
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -10,9 +12,20 @@ from schemas.caixa import CaixaStatusOut
 from schemas.dashboard import ItemMaisVendido, ResumoDia
 from services.caixa_service import status_caixa_atual
 
+# Os timestamps sao GRAVADOS em UTC (pratica padrao), mas o "dia" que o dono
+# enxerga segue o fuso do negocio. Sem isso, uma venda as 22h de Brasilia
+# (01h UTC do dia seguinte) apareceria no resumo de "amanha".
+FUSO_NEGOCIO = ZoneInfo(os.getenv("FUSO_NEGOCIO", "America/Sao_Paulo"))
+
+
+def hoje_negocio() -> date:
+    """Data atual no fuso do negocio (usada como default do dashboard)."""
+    return datetime.now(FUSO_NEGOCIO).date()
+
 
 def _intervalo_dia(dia: date) -> tuple[datetime, datetime]:
-    inicio = datetime.combine(dia, time.min, tzinfo=timezone.utc)
+    """[00:00, 24:00) do dia no fuso do negocio, em instantes absolutos."""
+    inicio = datetime.combine(dia, time.min, tzinfo=FUSO_NEGOCIO)
     return inicio, inicio + timedelta(days=1)
 
 
