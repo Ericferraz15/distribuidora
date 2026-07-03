@@ -23,13 +23,9 @@ class Caixa(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # 1:1 com Turno (RF03): o caixa e o registro financeiro do turno.
-    turno_id: Mapped[int] = mapped_column(
-        ForeignKey("turnos.id"), unique=True, index=True
-    )
+    turno_id: Mapped[int] = mapped_column(ForeignKey("turnos.id"), unique=True, index=True)
     saldo_inicial: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
-    saldo_final_informado: Mapped[Decimal | None] = mapped_column(
-        Numeric(12, 2), nullable=True
-    )
+    saldo_final_informado: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     abertura: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_agora)
     fechamento: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

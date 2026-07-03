@@ -28,7 +28,7 @@ class Estoque(BaseModel):
 
     @property
     def saldo_estoque(self) -> Decimal:
-        return sum(p.valor * p.quantidade for p in self.produtos)
+        return sum(produto.valor * produto.quantidade for produto in self.produtos)
 
 
 # --- DTOs de API -------------------------------------------------------------

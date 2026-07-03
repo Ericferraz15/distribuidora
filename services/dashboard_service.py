@@ -1,5 +1,5 @@
 import os
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -24,9 +24,15 @@ def hoje_negocio() -> date:
 
 
 def _intervalo_dia(dia: date) -> tuple[datetime, datetime]:
-    """[00:00, 24:00) do dia no fuso do negocio, em instantes absolutos."""
+    """[00:00, 24:00) do dia no fuso do negocio, convertido para instantes UTC.
+
+    Converter para UTC (astimezone) deixa a comparacao correta tanto no Postgres
+    (timestamptz) quanto no SQLite dos testes, que guarda o wall-clock em UTC e
+    descartaria o fuso de Sao Paulo, gerando um desencontro de 3h.
+    """
     inicio = datetime.combine(dia, time.min, tzinfo=FUSO_NEGOCIO)
-    return inicio, inicio + timedelta(days=1)
+    fim = inicio + timedelta(days=1)
+    return inicio.astimezone(timezone.utc), fim.astimezone(timezone.utc)
 
 
 def resumo_dia(db: Session, dia: date) -> ResumoDia:

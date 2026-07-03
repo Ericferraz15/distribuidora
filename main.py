@@ -5,7 +5,6 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import models  # noqa: F401  (registra as tabelas no Base.metadata)
 from database import Base, engine
 from routes import (
     caixa,

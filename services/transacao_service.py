@@ -27,9 +27,7 @@ def _turno_do_usuario(db: Session, current_user: Usuario):
     return turno
 
 
-def registrar_venda(
-    db: Session, current_user: Usuario, req: VendaRequest
-) -> Transacao:
+def registrar_venda(db: Session, current_user: Usuario, req: VendaRequest) -> Transacao:
     """RF04/RF06/RNF02: venda que baixa estoque e audita o funcionario.
 
     Tudo em uma unica transacao de banco (atomica).

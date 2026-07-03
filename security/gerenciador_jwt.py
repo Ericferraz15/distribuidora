@@ -32,9 +32,7 @@ class GerenciadorJwt:
             )
         self.algoritmo = "HS256"
 
-    def gerar_token(
-        self, usuario_id: int, permissao: str, tipo: Literal["access", "refresh"]
-    ) -> str:
+    def gerar_token(self, usuario_id: int, permissao: str, tipo: Literal["access", "refresh"]) -> str:
         validade = ACCESS_TTL if tipo == "access" else REFRESH_TTL
         payload = {
             # "sub" (subject) e string por convencao do JWT (RFC 7519).
