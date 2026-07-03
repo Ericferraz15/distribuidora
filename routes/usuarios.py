@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -35,7 +36,15 @@ def criar_usuario(body: UsuarioCreate, db: Session = Depends(get_db)):
         numero_telefone=body.numero_telefone,
     )
     db.add(usuario)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Corrida: duas requests criando o mesmo nome ao mesmo tempo.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ja existe um usuario com esse nome.",
+        )
     db.refresh(usuario)
     return usuario
 
@@ -72,6 +81,18 @@ def atualizar_usuario(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Voce nao pode rebaixar ou desativar a si mesmo.",
         )
+    # Renomear para um nome ja usado: mesmo tratamento do POST (409, nao 500).
+    novo_nome = dados.get("nome")
+    if novo_nome is not None and novo_nome != usuario.nome:
+        existente = db.scalars(
+            select(Usuario).where(Usuario.nome == novo_nome)
+        ).first()
+        if existente is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ja existe um usuario com esse nome.",
+            )
+
     senha = dados.pop("senha", None)
     if senha is not None:
         usuario.senha_hash = GerenciadorSenha.gerar_hash(senha)
@@ -81,6 +102,14 @@ def atualizar_usuario(
     for campo, valor in dados.items():
         setattr(usuario, campo, valor)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Corrida: outra request criou o mesmo nome entre a checagem e o commit.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ja existe um usuario com esse nome.",
+        )
     db.refresh(usuario)
     return usuario

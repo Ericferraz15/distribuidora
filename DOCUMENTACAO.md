@@ -16,6 +16,19 @@ aquele caixa.
 - **Onde:** `services/transacao_service.py` → `_turno_do_usuario()` compara
   `current_user.id` com `turno.funcionario_id` (403 caso não seja o dono).
   O encerramento do turno aplica a mesma checagem em `turno_service.encerrar_turno`.
+- **Exceção (supervisão):** um **admin** pode encerrar o turno de qualquer
+  funcionário. Sem isso, um funcionário que fosse embora sem fechar deixaria o
+  sistema travado para sempre (RN02 impediria abrir novo turno e ninguém mais
+  poderia encerrar o antigo). Movimentar o caixa (vendas/saídas) continua
+  exclusivo do dono.
+
+### Saídas nunca deixam o caixa negativo
+- Saída em **dinheiro** é limitada ao **dinheiro físico na gaveta**
+  (troco inicial + vendas em dinheiro − saídas em dinheiro) — venda no cartão
+  não vira nota na gaveta.
+- Qualquer saída é limitada ao **saldo total** do caixa.
+- **Onde:** `services/transacao_service.py` (`registrar_saida`) usando
+  `caixa_service.saldo_total` / `caixa_service.dinheiro_em_caixa` (409 se exceder).
 
 ### RN02 — Transição de Caixa
 Um novo turno/caixa **não** pode ser iniciado se houver um turno com status
@@ -102,7 +115,7 @@ projeto_max/
 | **MovimentoEstoque** | `id, produto_id, quantidade, tipo, data, funcionario_id, transacao_id, motivo` | N:1 Produto |
 
 - **tipo** da transação: `entrada` | `saida`.
-- **categoria**: `venda` | `sangria` | `despesa` | `suprimento`.
+- **categoria**: `venda` | `sangria` | `despesa`.
 - **status** do turno: `aberto` | `encerrado`.
 
 ---
@@ -117,10 +130,10 @@ projeto_max/
 | GET | `/auth/me` | autenticado (perfil do usuário logado) |
 | POST · GET · PATCH | `/usuarios` · `/usuarios/{id}` | **admin** (RNF03) |
 | POST | `/turnos/abrir` | autenticado |
-| POST | `/turnos/encerrar` | dono do turno (RN01) |
+| POST | `/turnos/encerrar` | dono do turno ou **admin** (RN01) |
 | GET | `/turnos/ativo` | autenticado |
 | GET | `/caixa/atual` | autenticado |
-| POST | `/caixa/fechar` | dono do turno (RN01) |
+| POST | `/caixa/fechar` | dono do turno ou **admin** (RN01) |
 | POST | `/transacoes/venda` | dono do turno (RN01) |
 | POST | `/transacoes/saida` | dono do turno (RN01) |
 | GET | `/transacoes` | autenticado |
@@ -146,7 +159,7 @@ Documentação interativa (Swagger): **`/docs`**.
 4. Consulta o **caixa** (`/caixa/atual`) e o **estoque** (`/produtos`) a qualquer
    momento.
 5. Ao final, **encerra o turno** (`/turnos/encerrar`) informando o saldo final
-   (conferência). *Apenas o dono encerra — RN01.*
+   (conferência). *O dono encerra; um admin também pode (supervisão) — RN01.*
 6. O **admin** acompanha tudo pelo **dashboard** (`/dashboard/*`).
 
 ---

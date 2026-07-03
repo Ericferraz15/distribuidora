@@ -16,16 +16,18 @@ class CategoriaTransacao(str, Enum):
     VENDA = "venda"
     SANGRIA = "sangria"
     DESPESA = "despesa"
-    SUPRIMENTO = "suprimento"
 
 
 class ItemVendaInput(BaseModel):
     produto_id: int
-    quantidade: int = Field(gt=0)
+    # le espelha o teto de estoque por produto (schemas.estoque.LIMITE_ESTOQUE).
+    quantidade: int = Field(gt=0, le=1_000_000)
 
 
 class VendaRequest(BaseModel):
-    itens: list[ItemVendaInput] = Field(min_length=1)
+    # max_length: teto sano de linhas por venda; barra payloads gigantes que
+    # fariam milhares de SELECTs/INSERTs numa unica requisicao.
+    itens: list[ItemVendaInput] = Field(min_length=1, max_length=100)
     metodo_pagamento: MetodoPagamento
     descricao: str | None = Field(default=None, max_length=255)
 
@@ -54,7 +56,10 @@ class TransacaoOut(BaseModel):
     caixa_id: int
     funcionario_id: int
     tipo: TipoTransacao
-    categoria: CategoriaTransacao
+    # str (nao enum): escrita e estrita, mas leitura tolera categorias legadas
+    # ja gravadas no banco (ex.: "suprimento", removida em 2026-07) — apagar o
+    # valor do enum aqui quebraria a serializacao do historico (RNF02).
+    categoria: str
     valor: Decimal
     metodo_pagamento: MetodoPagamento
     data: datetime

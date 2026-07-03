@@ -29,7 +29,8 @@ class Transacao(Base):
         ForeignKey("usuarios.id"), index=True
     )
     tipo: Mapped[str] = mapped_column(String(10))  # "entrada" | "saida"
-    # "venda" | "sangria" | "despesa" | "suprimento"
+    # "venda" | "sangria" | "despesa" (linhas antigas podem ter "suprimento",
+    # categoria removida em 2026-07; a leitura tolera — ver schemas.transacao)
     categoria: Mapped[str] = mapped_column(String(20))
     valor: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     metodo_pagamento: Mapped[str] = mapped_column(String(20))

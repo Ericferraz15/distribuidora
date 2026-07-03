@@ -3,19 +3,40 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from models.caixa_model import Caixa
 from models.transacao_model import Transacao
 from schemas.caixa import CaixaStatusOut
 from services.turno_service import get_turno_aberto
 
 
-def _soma(db: Session, caixa_id: int, tipo: str) -> Decimal:
-    bruto = db.scalar(
-        select(func.coalesce(func.sum(Transacao.valor), 0)).where(
-            Transacao.caixa_id == caixa_id, Transacao.tipo == tipo
-        )
+def _soma(db: Session, caixa_id: int, tipo: str, metodo: str | None = None) -> Decimal:
+    stmt = select(func.coalesce(func.sum(Transacao.valor), 0)).where(
+        Transacao.caixa_id == caixa_id, Transacao.tipo == tipo
     )
+    if metodo is not None:
+        stmt = stmt.where(Transacao.metodo_pagamento == metodo)
+    bruto = db.scalar(stmt)
     # func.sum pode voltar float (SQLite) ou Decimal (Postgres); normaliza.
     return Decimal(str(bruto))
+
+
+def saldo_total(db: Session, caixa: Caixa) -> Decimal:
+    """Saldo corrente do caixa: inicial + todas entradas - todas saidas."""
+    return (
+        caixa.saldo_inicial
+        + _soma(db, caixa.id, "entrada")
+        - _soma(db, caixa.id, "saida")
+    )
+
+
+def dinheiro_em_caixa(db: Session, caixa: Caixa) -> Decimal:
+    """Dinheiro fisico na gaveta: troco inicial + entradas em dinheiro
+    - saidas em dinheiro. Vendas no cartao nao colocam nota na gaveta."""
+    return (
+        caixa.saldo_inicial
+        + _soma(db, caixa.id, "entrada", metodo="dinheiro")
+        - _soma(db, caixa.id, "saida", metodo="dinheiro")
+    )
 
 
 def status_caixa_atual(db: Session) -> CaixaStatusOut:

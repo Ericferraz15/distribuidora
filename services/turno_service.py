@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from models.caixa_model import Caixa
 from models.turno_model import Turno
+from models.usuario_model import Usuario
 
 
 def _agora() -> datetime:
@@ -48,11 +49,14 @@ def abrir_turno(db: Session, funcionario_id: int, saldo_inicial: Decimal) -> Tur
 
 
 def encerrar_turno(
-    db: Session, funcionario_id: int, saldo_final_informado: Decimal
+    db: Session, usuario: Usuario, saldo_final_informado: Decimal
 ) -> Turno:
     """RF02/RF03: encerra o turno ativo e registra a conferencia do caixa.
 
-    RN01: apenas o dono do turno pode encerra-lo.
+    RN01: apenas o dono do turno pode encerra-lo. Excecao: um admin pode
+    encerrar o turno de qualquer funcionario — sem isso, um funcionario que
+    va embora sem fechar deixaria o sistema travado para sempre (RN02 impede
+    abrir novo turno e ninguem mais poderia encerrar o antigo).
     """
     turno = get_turno_aberto(db)
     if turno is None:
@@ -60,10 +64,10 @@ def encerrar_turno(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Nao ha turno aberto para encerrar.",
         )
-    if turno.funcionario_id != funcionario_id:
+    if turno.funcionario_id != usuario.id and usuario.permissao != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas o dono do turno pode encerra-lo (RN01).",
+            detail="Apenas o dono do turno ou um administrador pode encerra-lo (RN01).",
         )
 
     agora = _agora()

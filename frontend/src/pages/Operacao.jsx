@@ -7,7 +7,7 @@ import { SkeletonLinhas } from '../components/Skeleton.jsx'
 import { formatBRL, formatData, rotulo } from '../lib/format.js'
 
 const METODOS = ['dinheiro', 'debito', 'credito']
-const CATEGORIAS_SAIDA = ['sangria', 'despesa', 'suprimento']
+const CATEGORIAS_SAIDA = ['sangria', 'despesa']
 
 export default function Operacao() {
   const { user } = useAuth()
@@ -403,7 +403,7 @@ function ModalVenda({ aberto, produtos, onClose, onSucesso }) {
   )
 }
 
-// --- Saída (sangria / despesa / suprimento) --------------------------------
+// --- Saída (sangria / despesa) ----------------------------------------------
 function ModalSaida({ aberto, onClose, onSucesso }) {
   const toast = useToast()
   const [valor, setValor] = useState('')
@@ -442,7 +442,7 @@ function ModalSaida({ aberto, onClose, onSucesso }) {
   return (
     <Modal
       aberto={aberto}
-      titulo="Sangria / Despesa / Suprimento"
+      titulo="Sangria / Despesa"
       onClose={() => {
         limpar()
         onClose()
@@ -450,7 +450,7 @@ function ModalSaida({ aberto, onClose, onSucesso }) {
     >
       <form className="form-vertical" onSubmit={confirmar}>
         <p className="muted">
-          Sangria e despesa saem do caixa; suprimento entra. O valor sempre é positivo.
+          Sangria e despesa saem do caixa. O valor sempre é positivo.
         </p>
         <label className="campo">
           <span>Categoria</span>

@@ -36,7 +36,10 @@ class Caixa(BaseModel):
 
     @property
     def saldo(self) -> Decimal:
-        return sum(e.valor for e in self.entradas) - sum(s.valor for s in self.saidas)
+        # start=Decimal: sum() de lista vazia devolveria int 0, nao Decimal.
+        return sum((e.valor for e in self.entradas), Decimal(0)) - sum(
+            (s.valor for s in self.saidas), Decimal(0)
+        )
 
 
 class FechamentoMensal(BaseModel):
@@ -47,7 +50,7 @@ class FechamentoMensal(BaseModel):
 
     @property
     def saldo_total(self) -> Decimal:
-        return sum(c.saldo for c in self.caixas)
+        return sum((c.saldo for c in self.caixas), Decimal(0))
 
 
 # --- DTOs de API -------------------------------------------------------------

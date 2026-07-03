@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from models.caixa_model import Caixa
 from models.estoque_model import MovimentoEstoque, Produto
 from models.transacao_model import ItemVenda, Transacao
 from models.usuario_model import Usuario
@@ -88,6 +89,14 @@ def registrar_venda(db: Session, current_user: Usuario, req: VendaRequest) -> Tr
             )
             total += produto.valor * item.quantidade
 
+        # Teto da coluna Numeric(12, 2): precos x quantidades extremos podem
+        # passar de 10 bilhoes e derrubariam o INSERT no banco (500).
+        if total > Decimal("9999999999.99"):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Valor total da venda excede o limite suportado pelo caixa.",
+            )
+
         transacao.valor = total
         db.commit()
     except Exception:
@@ -100,7 +109,14 @@ def registrar_venda(db: Session, current_user: Usuario, req: VendaRequest) -> Tr
 def registrar_saida(
     db: Session, current_user: Usuario, req: SaidaRequest
 ) -> Transacao:
-    """RF04: sangria/despesa (saida) ou suprimento (entrada de caixa)."""
+    """RF04: registra saida do caixa (sangria ou despesa).
+
+    O caixa nunca fica negativo:
+      - saida em dinheiro e limitada ao dinheiro fisico na gaveta;
+      - saida em cartao e limitada ao saldo total do caixa.
+    """
+    from services import caixa_service  # import tardio: evita ciclo de modulo
+
     turno = _turno_do_usuario(db, current_user)
     if req.categoria == CategoriaTransacao.VENDA:
         raise HTTPException(
@@ -108,11 +124,33 @@ def registrar_saida(
             detail="Use /transacoes/venda para registrar vendas.",
         )
 
-    tipo = "entrada" if req.categoria == CategoriaTransacao.SUPRIMENTO else "saida"
+    # Tranca a linha do caixa (SELECT ... FOR UPDATE): serializa saidas
+    # concorrentes do mesmo caixa. Sem isso, duas sangrias simultaneas leem o
+    # mesmo saldo, ambas passam na checagem e o caixa fica negativo (corrida
+    # reproduzida em teste de carga; ver tests/test_concorrencia.py).
+    caixa = db.get(Caixa, turno.caixa.id, with_for_update=True)
+
+    total = caixa_service.saldo_total(db, caixa)
+    if req.valor > total:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Saldo insuficiente no caixa (disponivel: {total:.2f}).",
+        )
+    if req.metodo_pagamento.value == "dinheiro":
+        dinheiro = caixa_service.dinheiro_em_caixa(db, caixa)
+        if req.valor > dinheiro:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Dinheiro insuficiente na gaveta (disponivel: {dinheiro:.2f}); "
+                    "vendas no cartao nao viram dinheiro fisico."
+                ),
+            )
+
     transacao = Transacao(
-        caixa_id=turno.caixa.id,
+        caixa_id=caixa.id,
         funcionario_id=turno.funcionario_id,  # RNF02
-        tipo=tipo,
+        tipo="saida",
         categoria=req.categoria.value,
         valor=req.valor,
         metodo_pagamento=req.metodo_pagamento.value,

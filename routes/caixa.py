@@ -27,4 +27,4 @@ def fechar_caixa(
     db: Session = Depends(get_db),
 ):
     """RF03: conferencia/fechamento do caixa (encerra o turno ativo)."""
-    return turno_service.encerrar_turno(db, usuario.id, body.saldo_final_informado)
+    return turno_service.encerrar_turno(db, usuario, body.saldo_final_informado)

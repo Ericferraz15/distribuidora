@@ -240,3 +240,185 @@ def test_caixa_informa_nome_do_funcionario(client, func_headers):
     client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 10})
     caixa = client.get("/caixa/atual", headers=func_headers).json()
     assert caixa["funcionario_nome"] == "func"
+
+
+def test_patch_usuario_para_nome_ja_usado_da_409(client, admin_headers, funcionario):
+    """Regressao: renomear para nome existente dava 500 (IntegrityError cru)."""
+    r = client.post(
+        "/usuarios", headers=admin_headers, json={"nome": "outro", "senha": "123456"}
+    )
+    uid = r.json()["id"]
+    resp = client.patch(f"/usuarios/{uid}", headers=admin_headers, json={"nome": "func"})
+    assert resp.status_code == 409, resp.text
+
+
+# --- Caixa nunca fica negativo (regressao: sangria > saldo era aceita) --------
+def test_sangria_nao_excede_o_dinheiro_da_gaveta(client, func_headers):
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 100})
+
+    gigante = client.post(
+        "/transacoes/saida", headers=func_headers, json={"valor": 150, "categoria": "sangria"}
+    )
+    assert gigante.status_code == 409, gigante.text
+
+    exata = client.post(
+        "/transacoes/saida", headers=func_headers, json={"valor": 100, "categoria": "sangria"}
+    )
+    assert exata.status_code == 201, exata.text
+
+    # Caixa zerado: qualquer nova saida e negada.
+    a_mais = client.post(
+        "/transacoes/saida", headers=func_headers, json={"valor": 0.01, "categoria": "sangria"}
+    )
+    assert a_mais.status_code == 409
+    saldo = client.get("/caixa/atual", headers=func_headers).json()["saldo_atual"]
+    assert float(saldo) == 0.0
+
+
+def test_venda_no_cartao_nao_vira_dinheiro_na_gaveta(client, admin_headers, func_headers):
+    produto = _criar_produto(client, admin_headers, valor=50.0, quantidade=10)
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 0})
+    client.post(
+        "/transacoes/venda",
+        headers=func_headers,
+        json={"itens": [{"produto_id": produto["id"], "quantidade": 1}], "metodo_pagamento": "credito"},
+    )
+
+    # Ha 50 de saldo total, mas ZERO em notas: sangria em dinheiro e negada...
+    sangria = client.post(
+        "/transacoes/saida",
+        headers=func_headers,
+        json={"valor": 10, "categoria": "sangria", "metodo_pagamento": "dinheiro"},
+    )
+    assert sangria.status_code == 409, sangria.text
+
+    # ...mas uma despesa paga no cartao (ate o saldo total) e valida.
+    despesa = client.post(
+        "/transacoes/saida",
+        headers=func_headers,
+        json={"valor": 50, "categoria": "despesa", "metodo_pagamento": "credito"},
+    )
+    assert despesa.status_code == 201, despesa.text
+
+
+# --- Turno destravavel (regressao: deadlock RN01+RN02) -------------------------
+def test_admin_pode_encerrar_turno_de_outro(client, admin_headers, func_headers):
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 10})
+    resp = client.post(
+        "/turnos/encerrar", headers=admin_headers, json={"saldo_final_informado": 10}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "encerrado"
+
+
+def test_outro_funcionario_nao_encerra_turno(client, func_headers, db_session):
+    from models.usuario_model import Usuario
+    from security.gerenciador_senha import GerenciadorSenha
+
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 10})
+    db_session.add(
+        Usuario(nome="func3", senha_hash=GerenciadorSenha.gerar_hash("x123456"), permissao="funcionario")
+    )
+    db_session.commit()
+    login = client.post("/auth/login", data={"username": "func3", "password": "x123456"})
+    outro = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    resp = client.post("/turnos/encerrar", headers=outro, json={"saldo_final_informado": 10})
+    assert resp.status_code == 403  # RN01 continua valendo entre funcionarios
+
+
+# --- Limites de quantidade (regressao: int32 overflow virava 500) --------------
+def test_quantidades_gigantes_dao_422(client, admin_headers, func_headers):
+    tres_bi = 3_000_000_000
+    criar = client.post(
+        "/produtos",
+        headers=admin_headers,
+        json={"nome": "G", "valor": 1, "quantidade": tres_bi, "fornecedor": "x"},
+    )
+    assert criar.status_code == 422
+
+    produto = _criar_produto(client, admin_headers)
+    entrada = client.post(
+        f"/produtos/{produto['id']}/entrada", headers=admin_headers, json={"quantidade": tres_bi}
+    )
+    assert entrada.status_code == 422
+
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 0})
+    venda = client.post(
+        "/transacoes/venda",
+        headers=func_headers,
+        json={"itens": [{"produto_id": produto["id"], "quantidade": tres_bi}], "metodo_pagamento": "dinheiro"},
+    )
+    assert venda.status_code == 422
+
+
+def test_entrada_estoque_respeita_teto_acumulado(client, admin_headers):
+    produto = _criar_produto(client, admin_headers, quantidade=999_999)
+    resp = client.post(
+        f"/produtos/{produto['id']}/entrada", headers=admin_headers, json={"quantidade": 2}
+    )
+    assert resp.status_code == 409  # 999_999 + 2 estoura o teto de 1_000_000
+
+
+def test_login_com_senha_gigante_da_401(client, admin):
+    """Regressao: senha de 10KB estourava o bcrypt (ValueError -> 500)."""
+    resp = client.post("/auth/login", data={"username": "admin", "password": "x" * 10_000})
+    assert resp.status_code == 401
+
+
+def test_venda_com_itens_demais_da_422(client, admin_headers, func_headers):
+    produto = _criar_produto(client, admin_headers, quantidade=1000)
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 0})
+    resp = client.post(
+        "/transacoes/venda",
+        headers=func_headers,
+        json={
+            "itens": [{"produto_id": produto["id"], "quantidade": 1}] * 101,
+            "metodo_pagamento": "dinheiro",
+        },
+    )
+    assert resp.status_code == 422
+
+
+# --- Dashboard (regressao: LIMIT negativo derrubava a query no Postgres) -------
+def test_mais_vendidos_limite_invalido_da_422(client, admin_headers):
+    assert client.get("/dashboard/mais-vendidos?limite=-1", headers=admin_headers).status_code == 422
+    assert client.get("/dashboard/mais-vendidos?limite=0", headers=admin_headers).status_code == 422
+    assert client.get("/dashboard/mais-vendidos?limite=101", headers=admin_headers).status_code == 422
+
+
+# --- Remocao da categoria "suprimento" (2026-07) -------------------------------
+def test_suprimento_nao_e_mais_aceito(client, func_headers):
+    """Escrita estrita: a categoria foi removida; criar uma agora e 422."""
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 100})
+    resp = client.post(
+        "/transacoes/saida",
+        headers=func_headers,
+        json={"valor": 10, "categoria": "suprimento"},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+def test_transacao_legada_suprimento_ainda_serializa(client, func_headers, db_session):
+    """Leitura tolerante: linhas antigas com categoria legada nao quebram o GET."""
+    from models.transacao_model import Transacao
+
+    client.post("/turnos/abrir", headers=func_headers, json={"saldo_inicial": 100})
+    caixa = client.get("/caixa/atual", headers=func_headers).json()
+
+    # Simula uma transacao historica gravada antes da remocao da categoria.
+    db_session.add(
+        Transacao(
+            caixa_id=caixa["caixa_id"],
+            funcionario_id=caixa["funcionario_id"],
+            tipo="entrada",
+            categoria="suprimento",
+            valor=25,
+            metodo_pagamento="dinheiro",
+        )
+    )
+    db_session.commit()
+
+    resp = client.get("/transacoes", headers=func_headers)
+    assert resp.status_code == 200, resp.text
+    assert any(t["categoria"] == "suprimento" for t in resp.json())

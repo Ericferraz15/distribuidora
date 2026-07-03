@@ -24,8 +24,9 @@ def login(
     db: Session = Depends(get_db),
 ):
     """RF01: valida credenciais e emite tokens access + refresh."""
+    # strip: espaco acidental (autocomplete de celular adora) nao nega login.
     usuario = db.scalars(
-        select(Usuario).where(Usuario.nome == form.username)
+        select(Usuario).where(Usuario.nome == form.username.strip())
     ).first()
     senha_ok = GerenciadorSenha.verificar_hash(
         form.password, usuario.senha_hash if usuario else _HASH_ISCA
@@ -51,13 +52,22 @@ def me(usuario: Usuario = Depends(get_current_user)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(body: RefreshRequest):
-    novo_access = gerenciador_jwt.renovar_token(body.refresh_token)
-    if novo_access is None:
+def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+    dados = gerenciador_jwt.verificar_token(body.refresh_token)
+    if dados is None or dados.get("tipo") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token invalido ou expirado",
         )
+    # Rele o usuario do banco: desativado nao renova, e o novo access carrega a
+    # permissao ATUAL (nao a da epoca do login — rebaixado nao continua admin).
+    usuario = db.get(Usuario, int(dados["sub"]))
+    if usuario is None or not usuario.ativo:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token invalido ou expirado",
+        )
+    novo_access = gerenciador_jwt.gerar_token(usuario.id, usuario.permissao, "access")
     return TokenResponse(access_token=novo_access, refresh_token=body.refresh_token)
 
 

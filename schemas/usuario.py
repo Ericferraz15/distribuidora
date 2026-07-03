@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 # Tipos reutilizados pelos DTOs de criacao e edicao:
 #  - Senha: minimo 6 barra senha vazia/trivial; maximo 72 e o limite do bcrypt
@@ -9,8 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field
 #    422 claro ao cliente em vez de derrubar a requisicao.
 #  - Nome/Telefone: mesmos limites das colunas (String(120)/String(20)) para
 #    o Postgres nunca rejeitar o INSERT com erro generico.
+#  - strip_whitespace no Nome: " maria " cadastrada com espaco nunca mais
+#    conseguiria logar digitando "maria" (login compara nome exato).
 Senha = Annotated[str, Field(min_length=6, max_length=72)]
-Nome = Annotated[str, Field(min_length=2, max_length=120)]
+Nome = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=2, max_length=120)
+]
 Telefone = Annotated[str, Field(max_length=20)]
 
 

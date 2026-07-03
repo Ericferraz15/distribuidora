@@ -26,7 +26,7 @@ def registrar_saida(
     usuario: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """RF04: registra sangria/despesa (saida) ou suprimento (entrada)."""
+    """RF04: registra saida do caixa (sangria ou despesa)."""
     return transacao_service.registrar_saida(db, usuario, body)
 
 

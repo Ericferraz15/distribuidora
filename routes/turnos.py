@@ -25,7 +25,7 @@ def encerrar_turno(
     usuario: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return turno_service.encerrar_turno(db, usuario.id, body.saldo_final_informado)
+    return turno_service.encerrar_turno(db, usuario, body.saldo_final_informado)
 
 
 @router.get("/ativo", response_model=TurnoOut | None)

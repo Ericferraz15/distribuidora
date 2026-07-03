@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -28,7 +28,11 @@ def resumo(dia: date | None = None, db: Session = Depends(get_db)):
 
 
 @router.get("/mais-vendidos", response_model=list[ItemMaisVendido])
-def mais_vendidos(limite: int = 10, db: Session = Depends(get_db)):
+def mais_vendidos(
+    # ge/le: LIMIT negativo derruba a query no Postgres (500) e teto evita abuso.
+    limite: int = Query(default=10, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
     return dashboard_service.mais_vendidos(db, limite)
 
 

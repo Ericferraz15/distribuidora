@@ -125,9 +125,8 @@ export const handlers = [
   }),
   http.post('/transacoes/saida', async ({ request }) => {
     const { valor, categoria, metodo_pagamento, descricao } = await request.json()
-    const tipo = categoria === 'suprimento' ? 'entrada' : 'saida'
     const tx = {
-      id: ++db.seq, caixa_id: db.caixa?.id || 1, funcionario_id: 1, tipo,
+      id: ++db.seq, caixa_id: db.caixa?.id || 1, funcionario_id: 1, tipo: 'saida',
       categoria, valor: Number(valor).toFixed(2), metodo_pagamento, data: agora(),
       descricao: descricao || null, itens: [],
     }
