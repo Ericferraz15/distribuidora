@@ -48,7 +48,11 @@ def registrar_venda(db: Session, current_user: Usuario, req: VendaRequest) -> Tr
         db.flush()  # obtem transacao.id
 
         total = Decimal(0)
-        for item in req.itens:
+        # Ordena por produto_id para trancar as linhas SEMPRE na mesma ordem:
+        # duas vendas simultaneas com os mesmos produtos em ordens opostas
+        # ([A,B] e [B,A]) travariam uma a outra (deadlock; o Postgres mata uma
+        # das transacoes e o caixa recebe um 500).
+        for item in sorted(req.itens, key=lambda i: i.produto_id):
             # with_for_update = SELECT ... FOR UPDATE: tranca a linha do
             # produto ate o commit. Sem isso, duas vendas simultaneas leriam
             # o mesmo saldo e poderiam vender alem do estoque (race condition).

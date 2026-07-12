@@ -49,6 +49,6 @@ for modulo in (login, usuarios, turnos, caixa, transacoes, estoque, dashboard):
     app.include_router(modulo.router)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # host 0.0.0.0: expoe a API para todos os hosts da rede local (acesso via celular etc.)
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

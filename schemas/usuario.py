@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 # Tipos reutilizados pelos DTOs de criacao e edicao:
 #  - Senha: minimo 6 barra senha vazia/trivial; maximo 72 e o limite do bcrypt
@@ -46,6 +46,16 @@ class UsuarioUpdate(BaseModel):
     permissao: PermissaoUsuario | None = None
     numero_telefone: Telefone | None = None
     ativo: bool | None = None
+
+    # Num PATCH, "omitir o campo" significa "nao mexer"; null explicito em
+    # campo obrigatorio viraria IntegrityError no banco (e um 409 enganoso de
+    # "nome ja existe"). `numero_telefone` fica de fora: e anulavel.
+    @field_validator("nome", "senha", "permissao", "ativo", mode="before")
+    @classmethod
+    def _rejeita_null_em_campo_obrigatorio(cls, v):
+        if v is None:
+            raise ValueError("campo obrigatorio nao aceita null; omita-o para nao altera-lo")
+        return v
 
 
 class UsuarioOut(BaseModel):

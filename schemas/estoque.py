@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # --- Modelos de dominio (usados em testes unitarios) -------------------------
@@ -60,6 +60,16 @@ class ProdutoUpdate(BaseModel):
     fornecedor: str | None = Field(default=None, min_length=1, max_length=120)
     descricao: str | None = Field(default=None, max_length=255)
     ativo: bool | None = None
+
+    # Num PATCH, "omitir o campo" significa "nao mexer"; ja um null explicito
+    # em coluna NOT NULL nao tem semantica valida e estouraria IntegrityError
+    # (500) no banco. `descricao` fica de fora: e anulavel (null a limpa).
+    @field_validator("nome", "valor", "fornecedor", "ativo", mode="before")
+    @classmethod
+    def _rejeita_null_em_campo_obrigatorio(cls, v):
+        if v is None:
+            raise ValueError("campo obrigatorio nao aceita null; omita-o para nao altera-lo")
+        return v
 
 
 class ProdutoOut(BaseModel):
