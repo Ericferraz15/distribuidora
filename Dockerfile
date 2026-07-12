@@ -11,4 +11,5 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Entrypoint roda o seed do admin (idempotente) antes de subir o uvicorn.
+CMD ["sh", "scripts/entrypoint.sh"]
