@@ -103,13 +103,25 @@ done
 echo " ok"
 
 # API atraves do proxy do nginx: GET em /auth/login devolve 405 (rota e POST),
-# o que prova que nginx -> backend esta de pe. 502 = backend fora.
-STATUS="$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: application/json' http://127.0.0.1/auth/login)"
-if [ "$STATUS" = "502" ] || [ "$STATUS" = "504" ]; then
-    echo "ERRO: painel de pe mas a API nao responde (HTTP $STATUS). Logs:" >&2
-    echo "  $COMPOSE logs backend" >&2
-    exit 1
-fi
+# o que prova que nginx -> backend esta de pe. 502/504 = backend ainda fora.
+# Em maquina lenta o backend demora (Postgres inicializando + seed com retry),
+# entao insistimos por ate 90s antes de declarar erro.
+echo -n "-> Esperando a API responder"
+STATUS="000"
+for _ in $(seq 1 45); do
+    STATUS="$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: application/json' http://127.0.0.1/auth/login || echo 000)"
+    case "$STATUS" in
+        502|504|000) echo -n "."; sleep 2 ;;
+        *) break ;;
+    esac
+done
+echo
+case "$STATUS" in
+    502|504|000)
+        echo "ERRO: painel de pe mas a API nao respondeu apos 90s (HTTP $STATUS)." >&2
+        echo "Veja o que o backend esta dizendo:  $COMPOSE logs backend" >&2
+        exit 1 ;;
+esac
 echo "-> API respondendo (HTTP $STATUS em /auth/login)."
 
 # --- 6. Resumo ---------------------------------------------------------------

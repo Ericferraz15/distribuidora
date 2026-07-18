@@ -16,6 +16,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# --- 0. Docker instalado? ----------------------------------------------------
+if ! command -v docker >/dev/null 2>&1; then
+    echo "ERRO: docker nao instalado. Instale com:" >&2
+    echo "  curl -fsSL https://get.docker.com | sh" >&2
+    echo "e rode este script de novo." >&2
+    exit 1
+fi
+
 # --- 1. Sudo automatico ------------------------------------------------------
 # Se o usuario nao tem acesso ao Docker (grupo docker), reexecuta como root.
 if ! docker info >/dev/null 2>&1; then
@@ -23,11 +31,28 @@ if ! docker info >/dev/null 2>&1; then
         echo "-> Docker precisa de permissao de root aqui; pedindo senha do sudo..."
         exec sudo bash "$0" "$@"
     fi
-    # Ja e root e mesmo assim falhou: daemon parado. Tenta ligar.
-    echo "-> Daemon do Docker parado; iniciando..."
-    systemctl start docker
-    sleep 3
-    docker info >/dev/null 2>&1 || { echo "ERRO: Docker nao subiu. Veja: systemctl status docker" >&2; exit 1; }
+    # Ja e root e mesmo assim falhou: daemon parado. Liga agora E habilita no
+    # boot — sem o enable, todo reinicio do notebook voltava com o erro
+    # "cannot connect to the Docker daemon".
+    echo "-> Daemon do Docker parado; ligando e habilitando no boot..."
+    systemctl enable --now docker 2>/dev/null \
+        || systemctl enable --now snap.docker.dockerd 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        docker info >/dev/null 2>&1 && break
+        sleep 2
+    done
+    docker info >/dev/null 2>&1 || {
+        echo "ERRO: Docker nao subiu. Diagnostico: systemctl status docker" >&2
+        exit 1
+    }
+fi
+
+# Mesmo com o daemon ja rodando, garante que ele liga junto com o sistema.
+if command -v systemctl >/dev/null 2>&1 && systemctl cat docker >/dev/null 2>&1 \
+   && ! systemctl is-enabled --quiet docker 2>/dev/null; then
+    echo "-> Habilitando o Docker no boot..."
+    systemctl enable docker >/dev/null 2>&1 || sudo systemctl enable docker >/dev/null 2>&1 \
+        || echo "   (nao consegui; rode depois: sudo systemctl enable docker)"
 fi
 
 # --- 2. Limpeza da porta 80 --------------------------------------------------
