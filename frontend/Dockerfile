@@ -4,6 +4,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# No Docker a API vive atras do proxy /api/ do nginx (sem sniffing de Accept).
+ENV VITE_API_URL=/api
 RUN npm run build
 
 # Etapa 2: Servidor de produção
