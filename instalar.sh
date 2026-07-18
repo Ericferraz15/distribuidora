@@ -109,7 +109,9 @@ echo " ok"
 echo -n "-> Esperando a API responder"
 STATUS="000"
 for _ in $(seq 1 45); do
-    STATUS="$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: application/json' http://127.0.0.1/auth/login || echo 000)"
+    # curl ja imprime 000 quando nem conecta (o || true so segura o set -e).
+    STATUS="$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: application/json' http://127.0.0.1/auth/login || true)"
+    [ -n "$STATUS" ] || STATUS="000"
     case "$STATUS" in
         502|504|000) echo -n "."; sleep 2 ;;
         *) break ;;

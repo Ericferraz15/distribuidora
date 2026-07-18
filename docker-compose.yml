@@ -16,14 +16,12 @@ services:
     restart: always
     depends_on:
       - db
-    # O .env do host vale em tempo de execucao (chave JWT, admin, CORS...);
-    # sem isso o backend usava a copia congelada na imagem no build.
-    env_file:
-      - .env
-    # `environment` vence o env_file: o DATABASE_URL do .env (localhost, modo
-    # dev) nao se aplica dentro do container, aqui o banco se chama `db`.
     environment:
       - DATABASE_URL=postgresql://admin:admin123@db:5432/distribuidora_db
+    volumes:
+      # Chave JWT auto-gerada pelo entrypoint na 1a subida e reaproveitada
+      # depois — o sistema sobe sem .env e sem configuracao nenhuma.
+      - chave_jwt:/segredo
 
   # Frontend (Nginx + Vite)
   frontend:
@@ -38,3 +36,4 @@ services:
 
 volumes:
   postgres_data:
+  chave_jwt:
