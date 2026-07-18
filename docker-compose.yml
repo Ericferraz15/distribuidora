@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Banco de Dados
   db:
@@ -26,7 +24,9 @@ services:
     build: ./frontend
     restart: always
     ports:
-      - "127.0.0.1:80:80"
+      # PAINEL_BIND vem do .env (o instalar.sh cuida disso):
+      # 127.0.0.1 = so esta maquina; 0.0.0.0 = rede local toda (loja).
+      - "${PAINEL_BIND:-127.0.0.1}:80:80"
     depends_on:
       - backend
 

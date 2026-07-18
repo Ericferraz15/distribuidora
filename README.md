@@ -15,8 +15,9 @@ celulares/computadores da equipe pela rede local.
 ## Instalação completa (Docker)
 
 ```bash
-./instalar.sh                 # nesta máquina (127.0.0.1)
-EXPOR_REDE=1 ./instalar.sh    # notebook-servidor da loja (rede local)
+./subir_servidor.sh           # notebook-servidor da loja: limpa a porta 80,
+                              # cuida do sudo e sobe tudo aberto pra rede local
+./instalar.sh                 # instalação só nesta máquina (127.0.0.1)
 ```
 
 O script confere o Docker, gera o `.env` com chave JWT forte e sobe banco,

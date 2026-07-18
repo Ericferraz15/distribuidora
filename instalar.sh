@@ -61,20 +61,22 @@ else
 fi
 
 # --- 3. Exposicao na rede local (opcional) ----------------------------------
-# O docker-compose.yml publica o painel so em 127.0.0.1 por padrao. Para o
-# cenario da loja, um override abre a porta 80 para a rede toda.
+# O compose le PAINEL_BIND do .env para decidir onde publicar a porta 80.
+# (Versoes antigas deste script usavam docker-compose.override.yml, que o
+# compose SOMA em vez de substituir — a porta era aberta duas vezes e a
+# subida falhava com "address already in use". Por isso o rm abaixo.)
+rm -f docker-compose.override.yml
 if [ "${EXPOR_REDE:-0}" = "1" ]; then
-    cat > docker-compose.override.yml <<'EOF'
-# Gerado por instalar.sh (EXPOR_REDE=1): expoe o painel na rede local.
-services:
-  frontend:
-    ports:
-      - "80:80"
-EOF
+    BIND="0.0.0.0"
     echo "-> Painel sera exposto na rede local (porta 80 em todas as interfaces)."
 else
-    rm -f docker-compose.override.yml
+    BIND="127.0.0.1"
     echo "-> Painel acessivel so nesta maquina. Para a rede local: EXPOR_REDE=1 ./instalar.sh"
+fi
+if grep -q '^PAINEL_BIND=' .env; then
+    sed -i "s|^PAINEL_BIND=.*|PAINEL_BIND=${BIND}|" .env
+else
+    printf '\n# Interface onde o painel escuta (0.0.0.0 = rede local toda).\nPAINEL_BIND=%s\n' "$BIND" >> .env
 fi
 
 # --- 4. Build e subida -------------------------------------------------------
