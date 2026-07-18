@@ -1,4 +1,13 @@
+import pytest
+
 from security.gerenciador_jwt import GerenciadorJwt
+
+
+def test_chave_curta_falha_na_inicializacao(monkeypatch):
+    # Fail fast: subir o servidor com chave fraca e pior que nao subir.
+    monkeypatch.setenv("SECRET_KEY_JWT", "curta")
+    with pytest.raises(RuntimeError, match="SECRET_KEY_JWT"):
+        GerenciadorJwt()
 
 
 def test_access_token_valido():

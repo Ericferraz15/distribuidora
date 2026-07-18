@@ -1,47 +1,35 @@
-from enum import Enum
+from __future__ import annotations
+
+from datetime import datetime, timezone
 from decimal import Decimal
-from pydantic import BaseModel, Field
-from models.usuario_model import Usuario
-from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, ForeignKey, Numeric
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from database import Base
+
+if TYPE_CHECKING:
+    from models.transacao_model import Transacao
+    from models.turno_model import Turno
 
 
-class MetodoPagamento(str, Enum):
-    DINHEIRO = "dinheiro"
-    DEBITO = "debito"
-    CREDITO = "credito"
+def _agora() -> datetime:
+    return datetime.now(timezone.utc)
 
 
-class Entrada(BaseModel):
-    id: int
-    valor: Decimal
-    metodo: MetodoPagamento
+class Caixa(Base):
+    __tablename__ = "caixas"
 
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # 1:1 com Turno (RF03): o caixa e o registro financeiro do turno.
+    turno_id: Mapped[int] = mapped_column(ForeignKey("turnos.id"), unique=True, index=True)
+    saldo_inicial: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    saldo_final_informado: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    abertura: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_agora)
+    fechamento: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-class Saida(BaseModel):
-    id: int
-    valor: Decimal
-    metodo: MetodoPagamento
-
-
-class Caixa(BaseModel):
-    id: int
-    abertura: datetime = Field(default_factory=datetime.now)
-    fechamento: datetime | None = None
-    entradas: list[Entrada] = []
-    saidas: list[Saida] = []
-    responsavel: Usuario
-
-    @property
-    def saldo(self) -> Decimal:
-        return sum(e.valor for e in self.entradas) - sum(s.valor for s in self.saidas)
-
-
-class FechamentoMensal(BaseModel):
-    id: int
-    mes: int
-    ano: int
-    caixas: list[Caixa]
-
-    @property
-    def saldo_total(self) -> Decimal:
-        return sum(c.saldo for c in self.caixas)
+    turno: Mapped["Turno"] = relationship(back_populates="caixa")
+    transacoes: Mapped[list["Transacao"]] = relationship(back_populates="caixa")

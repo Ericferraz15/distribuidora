@@ -1,4 +1,4 @@
-from models.usuario_model import Usuario, PermissaoUsuario
+from schemas.usuario import Usuario, PermissaoUsuario
 
 
 def test_permissao_padrao_funcionario():

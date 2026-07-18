@@ -9,4 +9,10 @@ class GerenciadorSenha:
 
     @staticmethod
     def verificar_hash(senha_request: str, senha_hash: str) -> bool:
-        return bcrypt.checkpw(senha_request.encode(), senha_hash.encode())
+        try:
+            return bcrypt.checkpw(senha_request.encode(), senha_hash.encode())
+        except ValueError:
+            # bcrypt 5.x recusa senha > 72 bytes com ValueError. Nenhuma senha
+            # valida do sistema passa de 72 (schemas capam), entao a resposta
+            # certa e "nao confere" — e nao um 500 na cara do usuario.
+            return False

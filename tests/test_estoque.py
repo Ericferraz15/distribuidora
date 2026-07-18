@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from models.estoque_model import Estoque, Produto, MovimentoEstoque
+from schemas.estoque import Estoque, Produto, MovimentoEstoque
 
 
 def test_saldo_estoque_considera_quantidade():
