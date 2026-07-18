@@ -12,6 +12,17 @@ celulares/computadores da equipe pela rede local.
 - **[DOCUMENTACAO.md](DOCUMENTACAO.md)** — regras de negócio, arquitetura, modelo de dados, endpoints.
 - **[frontend/README.md](frontend/README.md)** — detalhes do painel.
 
+## Instalação completa (Docker)
+
+```bash
+./instalar.sh                 # nesta máquina (127.0.0.1)
+EXPOR_REDE=1 ./instalar.sh    # notebook-servidor da loja (rede local)
+```
+
+O script confere o Docker, gera o `.env` com chave JWT forte e sobe banco,
+API e painel de uma vez. Rodar de novo é seguro (não apaga dados do banco
+nem sobrescreve um `.env` existente).
+
 ## Subindo tudo (desenvolvimento)
 
 ```bash
